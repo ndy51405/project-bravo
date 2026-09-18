@@ -1,0 +1,6 @@
+{
+  "name": "多租戶測驗系統",
+  "description": "多租戶題組建立與測驗系統，支援出題管理、代碼測驗、單選作答與即時統計分析報告",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
