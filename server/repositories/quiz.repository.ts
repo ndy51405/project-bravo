@@ -1,120 +1,125 @@
-import { pool } from '../config/db';
+import crypto from 'crypto';
+import { eq, and, desc, asc, inArray, sql, count } from 'drizzle-orm';
+import { db } from '../config/db';
+import * as schema from '../db/schema';
 import { SeedQuiz } from '../seeds/seedData';
 
 export class QuizRepository {
   /**
-   * Sync seed quizzes directly inside a PostgreSQL Transaction
+   * Sync seed quizzes directly inside a PostgreSQL Transaction using Drizzle
    */
   static async syncQuizzesDirect(quizzesToSync: SeedQuiz[]) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-
+    return await db.transaction(async (tx) => {
       for (const q of quizzesToSync) {
-        await client.query(
-          `INSERT INTO public.quizzes (id, creator_id, creator_name, title, description, quiz_code, is_published, updated_at)
-           VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-           ON CONFLICT (id) DO UPDATE SET
-             creator_name = EXCLUDED.creator_name,
-             title = EXCLUDED.title,
-             description = EXCLUDED.description,
-             quiz_code = EXCLUDED.quiz_code,
-             is_published = EXCLUDED.is_published,
-             updated_at = NOW()`,
-          [q.id, q.creatorId, '陳教授 (Prof. Chen)', q.title, q.description, q.quizCode, q.isPublished]
-        );
+        await tx
+          .insert(schema.quizzes)
+          .values({
+            id: q.id,
+            creatorId: q.creatorId,
+            creatorName: '陳教授 (Prof. Chen)',
+            title: q.title,
+            description: q.description,
+            quizCode: q.quizCode,
+            isPublished: q.isPublished,
+            updatedAt: new Date().toISOString(),
+          })
+          .onConflictDoUpdate({
+            target: schema.quizzes.id,
+            set: {
+              creatorName: '陳教授 (Prof. Chen)',
+              title: q.title,
+              description: q.description,
+              quizCode: q.quizCode,
+              isPublished: q.isPublished,
+              updatedAt: new Date().toISOString(),
+            },
+          });
 
         // Delete old questions to maintain order consistency
-        await client.query('DELETE FROM public.questions WHERE quiz_id = $1', [q.id]);
+        await tx.delete(schema.questions).where(eq(schema.questions.quizId, q.id));
 
         for (const qst of q.questions) {
-          await client.query(
-            `INSERT INTO public.questions (id, quiz_id, question_order, question_text, correct_option, explanation, updated_at)
-             VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-            [qst.id, q.id, qst.order, qst.text, qst.correct, qst.explanation]
-          );
+          await tx.insert(schema.questions).values({
+            id: qst.id,
+            quizId: q.id,
+            questionOrder: qst.order,
+            questionText: qst.text,
+            correctOption: qst.correct,
+            explanation: qst.explanation || null,
+            updatedAt: new Date().toISOString(),
+          });
 
           for (const opt of qst.options) {
-            await client.query(
-              `INSERT INTO public.options (question_id, option_key, option_text)
-               VALUES ($1, $2, $3)
-               ON CONFLICT (question_id, option_key) DO UPDATE SET option_text = EXCLUDED.option_text`,
-              [qst.id, opt.key, opt.text]
-            );
+            await tx
+              .insert(schema.options)
+              .values({
+                questionId: qst.id,
+                optionKey: opt.key,
+                optionText: opt.text,
+              })
+              .onConflictDoUpdate({
+                target: [schema.options.questionId, schema.options.optionKey],
+                set: {
+                  optionText: opt.text,
+                },
+              });
           }
         }
       }
 
-      await client.query('COMMIT');
       return { success: true, count: quizzesToSync.length };
-    } catch (err) {
-      await client.query('ROLLBACK');
-      throw err;
-    } finally {
-      client.release();
-    }
+    });
   }
 
   /**
-   * Find a published quiz by its unique 6-character code
+   * Find a published quiz by its unique 6-character code using Drizzle Relational Queries
    */
   static async findByCode(code: string) {
-    const quizRes = await pool.query(
-      `SELECT q.*, COALESCE(q.creator_name, '出題者') as creator_name 
-       FROM public.quizzes q
-       WHERE q.quiz_code = $1 AND q.is_published = true`,
-      [code]
-    );
+    const found = await db.query.quizzes.findFirst({
+      where: and(
+        eq(schema.quizzes.quizCode, code.toUpperCase()),
+        eq(schema.quizzes.isPublished, true)
+      ),
+      with: {
+        questions: {
+          orderBy: [asc(schema.questions.questionOrder)],
+          with: {
+            options: {
+              orderBy: [asc(schema.options.optionKey)],
+            },
+          },
+        },
+      },
+    });
 
-    if (quizRes.rows.length === 0) {
+    if (!found) {
       return null;
     }
 
-    const quizRow = quizRes.rows[0];
-
-    // Fetch questions
-    const qstRes = await pool.query(
-      `SELECT * FROM public.questions WHERE quiz_id = $1 ORDER BY question_order ASC`,
-      [quizRow.id]
-    );
-
-    // Fetch options
-    const questionIds = qstRes.rows.map((r) => r.id);
-    let optionsRows: any[] = [];
-    if (questionIds.length > 0) {
-      const optRes = await pool.query(
-        `SELECT * FROM public.options WHERE question_id = ANY($1::uuid[]) ORDER BY option_key ASC`,
-        [questionIds]
-      );
-      optionsRows = optRes.rows;
-    }
-
-    const questions = qstRes.rows.map((qst) => ({
+    const questions = (found.questions || []).map((qst) => ({
       id: qst.id,
-      quizId: qst.quiz_id,
-      questionOrder: qst.question_order,
-      questionText: qst.question_text,
-      correctOption: qst.correct_option,
+      quizId: qst.quizId,
+      questionOrder: qst.questionOrder,
+      questionText: qst.questionText,
+      correctOption: qst.correctOption,
       explanation: qst.explanation || '',
-      options: optionsRows
-        .filter((opt) => opt.question_id === qst.id)
-        .map((opt) => ({
-          optionKey: opt.option_key,
-          optionText: opt.option_text,
-        })),
+      options: (qst.options || []).map((opt) => ({
+        optionKey: opt.optionKey,
+        optionText: opt.optionText,
+      })),
     }));
 
     return {
       quiz: {
-        id: quizRow.id,
-        creatorId: quizRow.creator_id,
-        creatorName: quizRow.creator_name || '出題者',
-        title: quizRow.title,
-        description: quizRow.description || '',
-        quizCode: quizRow.quiz_code,
-        isPublished: quizRow.is_published,
-        createdAt: quizRow.created_at,
-        updatedAt: quizRow.updated_at,
+        id: found.id,
+        creatorId: found.creatorId,
+        creatorName: found.creatorName || '出題者',
+        title: found.title,
+        description: found.description || '',
+        quizCode: found.quizCode,
+        isPublished: found.isPublished,
+        createdAt: found.createdAt,
+        updatedAt: found.updatedAt,
         questions,
       },
       questions,
@@ -125,91 +130,81 @@ export class QuizRepository {
    * Find all quizzes created by a specific user with aggregated stats
    */
   static async findByCreatorId(creatorId: string) {
-    const client = await pool.connect();
-    try {
-      const qRes = await client.query(
-        `SELECT q.*, 
-                COUNT(DISTINCT r.session_id) as taker_count,
-                COALESCE(AVG(CASE WHEN r.is_correct THEN 100.0 ELSE 0.0 END), 0) as average_score
-         FROM public.quizzes q
-         LEFT JOIN public.responses r ON q.id = r.quiz_id
-         WHERE q.creator_id = $1
-         GROUP BY q.id
-         ORDER BY q.created_at DESC`,
-        [creatorId]
-      );
+    const rows = await db
+      .select({
+        id: schema.quizzes.id,
+        creatorId: schema.quizzes.creatorId,
+        creatorName: schema.quizzes.creatorName,
+        title: schema.quizzes.title,
+        description: schema.quizzes.description,
+        quizCode: schema.quizzes.quizCode,
+        isPublished: schema.quizzes.isPublished,
+        createdAt: schema.quizzes.createdAt,
+        updatedAt: schema.quizzes.updatedAt,
+        takerCount: sql<number>`count(distinct ${schema.responses.sessionId})::int`,
+        averageScore: sql<number>`coalesce(avg(case when ${schema.responses.isCorrect} then 100.0 else 0.0 end), 0)::float`,
+      })
+      .from(schema.quizzes)
+      .leftJoin(schema.responses, eq(schema.quizzes.id, schema.responses.quizId))
+      .where(eq(schema.quizzes.creatorId, creatorId))
+      .groupBy(schema.quizzes.id)
+      .orderBy(desc(schema.quizzes.createdAt));
 
-      const quizIds = qRes.rows.map((r) => r.id);
-      let questionsRows: any[] = [];
-      let optionsRows: any[] = [];
+    const quizIds = rows.map((r) => r.id);
+    let questionsWithOpts: any[] = [];
 
-      if (quizIds.length > 0) {
-        const qstRes = await client.query(
-          `SELECT * FROM public.questions WHERE quiz_id = ANY($1::uuid[]) ORDER BY question_order ASC`,
-          [quizIds]
-        );
-        questionsRows = qstRes.rows;
-
-        const qstIds = questionsRows.map((r) => r.id);
-        if (qstIds.length > 0) {
-          const optRes = await client.query(
-            `SELECT * FROM public.options WHERE question_id = ANY($1::uuid[]) ORDER BY option_key ASC`,
-            [qstIds]
-          );
-          optionsRows = optRes.rows;
-        }
-      }
-
-      return qRes.rows.map((row) => {
-        const qList = questionsRows
-          .filter((qst) => qst.quiz_id === row.id)
-          .map((qst) => ({
-            id: qst.id,
-            quizId: qst.quiz_id,
-            questionOrder: qst.question_order,
-            questionText: qst.question_text,
-            correctOption: qst.correct_option,
-            explanation: qst.explanation || '',
-            options: optionsRows
-              .filter((o) => o.question_id === qst.id)
-              .map((o) => ({ optionKey: o.option_key, optionText: o.option_text })),
-          }));
-
-        return {
-          id: row.id,
-          creatorId: row.creator_id,
-          title: row.title,
-          description: row.description || '',
-          quizCode: row.quiz_code,
-          isPublished: row.is_published,
-          createdAt: row.created_at,
-          updatedAt: row.updated_at,
-          questions: qList,
-          takerCount: parseInt(row.taker_count || '0', 10),
-          averageScore: Math.round(parseFloat(row.average_score || '0')),
-        };
+    if (quizIds.length > 0) {
+      questionsWithOpts = await db.query.questions.findMany({
+        where: inArray(schema.questions.quizId, quizIds),
+        orderBy: [asc(schema.questions.questionOrder)],
+        with: {
+          options: {
+            orderBy: [asc(schema.options.optionKey)],
+          },
+        },
       });
-    } finally {
-      client.release();
     }
+
+    return rows.map((row) => {
+      const qList = questionsWithOpts
+        .filter((qst) => qst.quizId === row.id)
+        .map((qst) => ({
+          id: qst.id,
+          quizId: qst.quizId,
+          questionOrder: qst.questionOrder,
+          questionText: qst.questionText,
+          correctOption: qst.correctOption,
+          explanation: qst.explanation || '',
+          options: (qst.options || []).map((o: any) => ({
+            optionKey: o.optionKey,
+            optionText: o.optionText,
+          })),
+        }));
+
+      return {
+        id: row.id,
+        creatorId: row.creatorId,
+        creatorName: row.creatorName || '出題者',
+        title: row.title,
+        description: row.description || '',
+        quizCode: row.quizCode,
+        isPublished: row.isPublished,
+        createdAt: row.createdAt,
+        updatedAt: row.updatedAt,
+        questions: qList,
+        takerCount: row.takerCount || 0,
+        averageScore: Math.round(row.averageScore || 0),
+      };
+    });
   }
 
   /**
    * Save or update a single quiz with its questions and options inside a transaction
    */
   static async saveQuiz(quizItem: any, creatorItem?: any) {
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
-      const saved = await this._saveQuizInternal(client, quizItem, creatorItem);
-      await client.query('COMMIT');
-      return saved;
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
-    }
+    return await db.transaction(async (tx) => {
+      return await this._saveQuizInternal(tx, quizItem, creatorItem);
+    });
   }
 
   /**
@@ -220,31 +215,31 @@ export class QuizRepository {
       return [];
     }
 
-    const client = await pool.connect();
-    try {
-      await client.query('BEGIN');
+    return await db.transaction(async (tx) => {
       const synced: any[] = [];
       for (const q of quizzes) {
-        const saved = await this._saveQuizInternal(client, q, creatorItem);
+        const saved = await this._saveQuizInternal(tx, q, creatorItem);
         synced.push(saved);
       }
-      await client.query('COMMIT');
       return synced;
-    } catch (e) {
-      await client.query('ROLLBACK');
-      throw e;
-    } finally {
-      client.release();
-    }
+    });
   }
 
   /**
    * Internal transactional worker to upsert a quiz and its questions
    */
-  private static async _saveQuizInternal(client: any, quizItem: any, creatorItem?: any) {
+  private static async _saveQuizInternal(tx: any, quizItem: any, creatorItem?: any) {
     const qTitle = (quizItem.title || quizItem.quizData?.title || '').trim();
     const qDesc = (quizItem.description || quizItem.quizData?.description || '').trim();
-    let qCode = (quizItem.quizCode || quizItem.generatedCode || quizItem.code || quizItem.quizData?.quizCode || '').trim().toUpperCase();
+    let qCode = (
+      quizItem.quizCode ||
+      quizItem.generatedCode ||
+      quizItem.code ||
+      quizItem.quizData?.quizCode ||
+      ''
+    )
+      .trim()
+      .toUpperCase();
     const qId = quizItem.id || quizItem.quizData?.id || crypto.randomUUID();
     const cId = creatorItem?.id || quizItem.creatorId || '00000000-0000-0000-0000-000000000001';
     const cName = creatorItem?.displayName || quizItem.creatorName || '出題者';
@@ -256,9 +251,14 @@ export class QuizRepository {
 
     // If updating an existing quiz and quizCode was not provided, look it up from database
     if (!qCode && quizItem.id) {
-      const existing = await client.query('SELECT quiz_code FROM public.quizzes WHERE id = $1', [quizItem.id]);
-      if (existing.rows.length > 0) {
-        qCode = existing.rows[0].quiz_code;
+      const existing = await tx
+        .select({ quizCode: schema.quizzes.quizCode })
+        .from(schema.quizzes)
+        .where(eq(schema.quizzes.id, quizItem.id))
+        .limit(1);
+
+      if (existing.length > 0) {
+        qCode = existing[0].quizCode;
       }
     }
 
@@ -271,55 +271,80 @@ export class QuizRepository {
         for (let i = 0; i < 6; i++) {
           candidate += chars.charAt(Math.floor(Math.random() * chars.length));
         }
-        const check = await client.query('SELECT 1 FROM public.quizzes WHERE quiz_code = $1', [candidate]);
-        if (check.rows.length === 0) {
+        const check = await tx
+          .select({ id: schema.quizzes.id })
+          .from(schema.quizzes)
+          .where(eq(schema.quizzes.quizCode, candidate))
+          .limit(1);
+
+        if (check.length === 0) {
           qCode = candidate;
           isUnique = true;
         }
       }
     }
 
-
-    await client.query(
-      `INSERT INTO public.quizzes (id, creator_id, creator_name, title, description, quiz_code, is_published, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, NOW())
-       ON CONFLICT (id) DO UPDATE SET 
-         creator_name = EXCLUDED.creator_name,
-         title = EXCLUDED.title,
-         description = EXCLUDED.description,
-         quiz_code = EXCLUDED.quiz_code,
-         is_published = EXCLUDED.is_published,
-         updated_at = NOW()`,
-      [qId, cId, cName, qTitle, qDesc, qCode, true]
-    );
+    await tx
+      .insert(schema.quizzes)
+      .values({
+        id: qId,
+        creatorId: cId,
+        creatorName: cName,
+        title: qTitle,
+        description: qDesc,
+        quizCode: qCode,
+        isPublished: true,
+        updatedAt: new Date().toISOString(),
+      })
+      .onConflictDoUpdate({
+        target: schema.quizzes.id,
+        set: {
+          creatorName: cName,
+          title: qTitle,
+          description: qDesc,
+          quizCode: qCode,
+          isPublished: true,
+          updatedAt: new Date().toISOString(),
+        },
+      });
 
     // Delete old questions
-    await client.query('DELETE FROM public.questions WHERE quiz_id = $1', [qId]);
+    await tx.delete(schema.questions).where(eq(schema.questions.quizId, qId));
 
     let order = 1;
     for (const qst of rawQuestions) {
-      const qstId = qst.id && qst.id.includes('-') && qst.id.length === 36 ? qst.id : crypto.randomUUID();
+      const qstId =
+        qst.id && qst.id.includes('-') && qst.id.length === 36 ? qst.id : crypto.randomUUID();
       const qstOrder = qst.questionOrder || qst.order || order++;
       const qstText = (qst.questionText || qst.text || '').trim();
       const correctOpt = qst.correctOption || qst.correct || 'A';
       const expl = (qst.explanation || '').trim();
 
-      await client.query(
-        `INSERT INTO public.questions (id, quiz_id, question_order, question_text, correct_option, explanation, updated_at)
-         VALUES ($1, $2, $3, $4, $5, $6, NOW())`,
-        [qstId, qId, qstOrder, qstText, correctOpt, expl || null]
-      );
+      await tx.insert(schema.questions).values({
+        id: qstId,
+        quizId: qId,
+        questionOrder: qstOrder,
+        questionText: qstText,
+        correctOption: correctOpt,
+        explanation: expl || null,
+        updatedAt: new Date().toISOString(),
+      });
 
       const options = qst.options || [];
       for (const opt of options) {
         const optKey = opt.optionKey || opt.key;
         const optText = (opt.optionText || opt.text || '').trim();
-        await client.query(
-          `INSERT INTO public.options (question_id, option_key, option_text)
-           VALUES ($1, $2, $3)
-           ON CONFLICT (question_id, option_key) DO UPDATE SET option_text = EXCLUDED.option_text`,
-          [qstId, optKey, optText]
-        );
+        await tx
+          .insert(schema.options)
+          .values({
+            questionId: qstId,
+            optionKey: optKey,
+            optionText: optText,
+          })
+          .onConflictDoUpdate({
+            target: [schema.options.questionId, schema.options.optionKey],
+            set: { optionText: optText },
+          });
       }
     }
 
@@ -330,32 +355,27 @@ export class QuizRepository {
    * Delete quiz by ID
    */
   static async deleteById(id: string) {
-    return pool.query('DELETE FROM public.quizzes WHERE id = $1', [id]);
+    return await db.delete(schema.quizzes).where(eq(schema.quizzes.id, id));
   }
 
   /**
    * Get counts for health check
    */
   static async getHealthCounts() {
-    const dbRes = await pool.query('SELECT NOW() as current_time');
-    const tableCounts = await pool.query(`
-      SELECT 
-        (SELECT COUNT(*) FROM public.quizzes) AS quizzes_count,
-        (SELECT COUNT(*) FROM public.questions) AS questions_count,
-        (SELECT COUNT(*) FROM public.options) AS options_count,
-        (SELECT COUNT(*) FROM public.responses) AS responses_count
-    `);
+    const [qCount] = await db.select({ val: count() }).from(schema.quizzes);
+    const [qstCount] = await db.select({ val: count() }).from(schema.questions);
+    const [optCount] = await db.select({ val: count() }).from(schema.options);
+    const [resCount] = await db.select({ val: count() }).from(schema.responses);
 
     return {
-      timestamp: dbRes.rows[0].current_time,
+      timestamp: new Date().toISOString(),
       counts: {
         users: 0,
-        quizzes: parseInt(tableCounts.rows[0].quizzes_count, 10),
-        questions: parseInt(tableCounts.rows[0].questions_count, 10),
-        options: parseInt(tableCounts.rows[0].options_count, 10),
-        responses: parseInt(tableCounts.rows[0].responses_count, 10),
+        quizzes: Number(qCount?.val || 0),
+        questions: Number(qstCount?.val || 0),
+        options: Number(optCount?.val || 0),
+        responses: Number(resCount?.val || 0),
       },
     };
   }
 }
-

@@ -1,6 +1,8 @@
 import dotenv from 'dotenv';
 import { Pool } from 'pg';
+import { drizzle } from 'drizzle-orm/node-postgres';
 import { createClient } from '@supabase/supabase-js';
+import * as schema from '../db/schema';
 
 dotenv.config();
 
@@ -21,6 +23,9 @@ export const pool = new Pool({
   max: 10,
   idleTimeoutMillis: 30000,
 });
+
+// Drizzle ORM instance wrapping the existing pool
+export const db = drizzle(pool, { schema });
 
 pool.on('error', (err: any) => {
   if (err.code === 'ECONNREFUSED') {
