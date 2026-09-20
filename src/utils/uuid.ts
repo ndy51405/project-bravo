@@ -13,14 +13,11 @@ export function generateUUID(): string {
 }
 
 /**
- * Generate a random 6-character uppercase quiz code
+ * Generate a random 4-digit quiz code
  */
 export function generateQuizCode(): string {
-  const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
-  let code = '';
-  for (let i = 0; i < 6; i++) {
-    code += chars.charAt(Math.floor(Math.random() * chars.length));
-  }
-  return code;
+  return Math.floor(Math.random() * 10000)
+    .toString()
+    .padStart(4, '0');
 }
 

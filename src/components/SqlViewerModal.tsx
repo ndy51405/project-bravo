@@ -55,11 +55,11 @@ CREATE TABLE IF NOT EXISTS public.quizzes (
     creator_name VARCHAR(100) DEFAULT '出題者',
     title VARCHAR(150) NOT NULL,
     description TEXT,
-    quiz_code VARCHAR(12) NOT NULL UNIQUE,
+    quiz_code TEXT NOT NULL UNIQUE,
     is_published BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT quiz_code_uppercase_alphanumeric CHECK (quiz_code ~ '^[A-Z0-9]{4,12}$')
+    CONSTRAINT quiz_code_four_digits CHECK (quiz_code ~ '^[0-9]{4}$')
 );
 
 -- 2. 題目資料表 (Questions)

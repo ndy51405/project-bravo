@@ -14,7 +14,7 @@ export class QuizService {
   }
 
   /**
-   * Find published quiz by 6-char access code
+   * Find published quiz by 4-digit access code
    */
   static async getQuizByCode(code: string) {
     const cleanCode = (code || '').trim().toUpperCase();
@@ -26,6 +26,13 @@ export class QuizService {
       throw new Error('查無此題組密碼或該測驗尚未公開');
     }
     return data;
+  }
+
+  /**
+   * Get list of published quizzes for takers
+   */
+  static async getPublishedQuizzes(limitCount = 10) {
+    return QuizRepository.findPublishedQuizzes(limitCount);
   }
 
   /**

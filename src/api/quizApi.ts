@@ -10,10 +10,17 @@ export const quizApi = {
   },
 
   /**
-   * Fetch a published quiz by its 6-character access code
+   * Fetch a published quiz by its 4-digit access code
    */
   async getQuizByCode(code: string): Promise<{ quiz: Quiz; questions: Question[] }> {
     return apiClient<{ quiz: Quiz; questions: Question[] }>(`/api/quizzes/code/${encodeURIComponent(code)}`);
+  },
+
+  /**
+   * Fetch currently published quizzes from the database
+   */
+  async getPublishedQuizzes(limit = 10): Promise<Array<{ code: string; title: string; creatorName: string; questionCount: number }>> {
+    return apiClient<Array<{ code: string; title: string; creatorName: string; questionCount: number }>>(`/api/quizzes/published?limit=${limit}`);
   },
 
   /**

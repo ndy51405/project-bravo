@@ -8,7 +8,7 @@ export const quizzes = pgTable('quizzes', {
   creatorName: varchar('creator_name', { length: 100 }).default('出題者'),
   title: varchar('title', { length: 150 }).notNull(),
   description: text('description'),
-  quizCode: varchar('quiz_code', { length: 12 }).notNull().unique(),
+  quizCode: text('quiz_code').notNull().unique(),
   isPublished: boolean('is_published').notNull().default(true),
   createdAt: timestamp('created_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),
   updatedAt: timestamp('updated_at', { withTimezone: true, mode: 'string' }).notNull().defaultNow(),

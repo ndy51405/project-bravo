@@ -37,7 +37,7 @@ export interface Quiz {
   creatorName?: string;
   title: string;
   description: string;
-  quizCode: string; // 大寫英文與數字組合 (e.g. "QZ89KM")
+  quizCode: string; // 4 位數字 (e.g. "1001")
   isPublished: boolean;
   createdAt: string;
   updatedAt: string;

@@ -43,7 +43,7 @@ export const SEED_QUIZZES: SeedQuiz[] = [
     creatorId: '00000000-0000-0000-0000-000000000001',
     title: '基礎雲端架構與 Web 核心測驗',
     description: '涵蓋 HTTP 狀態碼、RESTful API 原理與資料庫索引設計基礎概念。',
-    quizCode: 'CLOUD9',
+    quizCode: '1001',
     isPublished: true,
     questions: [
       {
@@ -92,7 +92,7 @@ export const SEED_QUIZZES: SeedQuiz[] = [
     creatorId: '00000000-0000-0000-0000-000000000001',
     title: 'TypeScript & 前端開發核心挑戰',
     description: '測試對 TypeScript 型別系統、React 渲染週期及現代前端工具的理解。',
-    quizCode: 'TS2026',
+    quizCode: '2026',
     isPublished: true,
     questions: [
       {

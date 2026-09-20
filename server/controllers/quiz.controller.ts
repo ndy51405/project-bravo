@@ -43,6 +43,17 @@ export class QuizController {
     }
   }
 
+  static async getPublished(req: Request, res: Response) {
+    try {
+      const limit = req.query.limit ? parseInt(req.query.limit as string, 10) : 10;
+      const quizzes = await QuizService.getPublishedQuizzes(limit);
+      res.json(quizzes);
+    } catch (err: any) {
+      console.error('Fetch published quizzes error:', err);
+      res.status(500).json({ error: err?.message || 'Database error' });
+    }
+  }
+
   static async saveQuiz(req: Request, res: Response) {
     try {
       const { quiz, quizData, creator, generatedCode } = req.body;

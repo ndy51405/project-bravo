@@ -72,7 +72,7 @@ export class QuizRepository {
   }
 
   /**
-   * Find a published quiz by its unique 6-character code using Drizzle Relational Queries
+   * Find a published quiz by its unique 4-digit code using Drizzle Relational Queries
    */
   static async findByCode(code: string) {
     const found = await db.query.quizzes.findFirst({
@@ -199,6 +199,33 @@ export class QuizRepository {
   }
 
   /**
+   * Find all published quizzes for takers to discover
+   */
+  static async findPublishedQuizzes(limitCount = 10) {
+    const rows = await db
+      .select({
+        id: schema.quizzes.id,
+        quizCode: schema.quizzes.quizCode,
+        title: schema.quizzes.title,
+        creatorName: schema.quizzes.creatorName,
+        questionCount: sql<number>`count(${schema.questions.id})::int`,
+      })
+      .from(schema.quizzes)
+      .leftJoin(schema.questions, eq(schema.quizzes.id, schema.questions.quizId))
+      .where(eq(schema.quizzes.isPublished, true))
+      .groupBy(schema.quizzes.id)
+      .orderBy(desc(schema.quizzes.createdAt))
+      .limit(limitCount);
+
+    return rows.map((r) => ({
+      code: r.quizCode,
+      title: r.title,
+      creatorName: r.creatorName || '出題者',
+      questionCount: Number(r.questionCount) || 0,
+    }));
+  }
+
+  /**
    * Save or update a single quiz with its questions and options inside a transaction
    */
   static async saveQuiz(quizItem: any, creatorItem?: any) {
@@ -262,15 +289,13 @@ export class QuizRepository {
       }
     }
 
-    // If creating a new quiz (or code still missing), generate a valid 6-character uppercase alphanumeric code
+    // If creating a new quiz (or code still missing), generate a valid 4-digit numeric code
     if (!qCode) {
-      const chars = 'ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
       let isUnique = false;
       while (!isUnique) {
-        let candidate = '';
-        for (let i = 0; i < 6; i++) {
-          candidate += chars.charAt(Math.floor(Math.random() * chars.length));
-        }
+        const candidate = Math.floor(Math.random() * 10000)
+          .toString()
+          .padStart(4, '0');
         const check = await tx
           .select({ id: schema.quizzes.id })
           .from(schema.quizzes)

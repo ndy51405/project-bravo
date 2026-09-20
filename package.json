@@ -10,7 +10,8 @@
     "preview": "vite preview",
     "clean": "rm -rf dist server.cjs",
     "lint": "tsc --noEmit",
-    "db:init": "tsx server/scripts/initDb.ts"
+    "db:init": "tsx server/scripts/initDb.ts",
+    "db:migrate": "tsx server/scripts/migrate.ts"
   },
   "dependencies": {
     "@google/genai": "^2.4.0",

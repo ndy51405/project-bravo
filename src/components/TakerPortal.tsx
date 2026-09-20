@@ -1,7 +1,7 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { quizApi } from '../api/quizApi';
 import { Quiz, Question, User } from '../types';
-import { KeyRound, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
+import { KeyRound, ArrowRight, AlertCircle, Sparkles, Loader2 } from 'lucide-react';
 
 interface TakerPortalProps {
   currentUser: User | null;
@@ -19,6 +19,32 @@ export const TakerPortal: React.FC<TakerPortalProps> = ({
   const [code, setCode] = useState(presetCode.toUpperCase());
   const [errorMessage, setErrorMessage] = useState<string | null>(null);
   const [isLoading, setIsLoading] = useState(false);
+  const [publishedQuizzes, setPublishedQuizzes] = useState<Array<{ code: string; title: string; creatorName: string; questionCount: number }>>([]);
+  const [isLoadingList, setIsLoadingList] = useState(true);
+
+  useEffect(() => {
+    let isMounted = true;
+    const fetchPublished = async () => {
+      try {
+        setIsLoadingList(true);
+        const data = await quizApi.getPublishedQuizzes();
+        if (isMounted && Array.isArray(data)) {
+          setPublishedQuizzes(data);
+        }
+      } catch (err) {
+        console.warn('載入現有發布題組失敗:', err);
+      } finally {
+        if (isMounted) {
+          setIsLoadingList(false);
+        }
+      }
+    };
+
+    fetchPublished();
+    return () => {
+      isMounted = false;
+    };
+  }, []);
 
   const handleVerifyAndStart = async (e?: React.FormEvent) => {
     if (e) e.preventDefault();
@@ -66,11 +92,6 @@ export const TakerPortal: React.FC<TakerPortalProps> = ({
     }
   };
 
-  const demoQuizzes = [
-    { code: 'CLOUD9', title: '基礎雲端架構與 Web 核心測驗', creatorName: '陳教授 (Prof. Chen)', questionCount: 3 },
-    { code: 'TS2026', title: 'TypeScript & 前端開發核心挑戰', creatorName: '陳教授 (Prof. Chen)', questionCount: 2 },
-  ];
-
   return (
     <div className="max-w-xl mx-auto px-4 py-12 sm:py-16">
       <div className="bg-white rounded-3xl border-2 border-orange-100 shadow-sm p-6 sm:p-10 relative overflow-hidden">
@@ -105,19 +126,21 @@ export const TakerPortal: React.FC<TakerPortalProps> = ({
         <form onSubmit={handleVerifyAndStart} className="space-y-4">
           <div>
             <label className="block text-xs font-semibold text-slate-700 mb-1.5 text-center">
-              題組代碼 (大寫英文字母與數字)
+              題組代碼 (4 位數字)
             </label>
             <div className="relative max-w-xs mx-auto">
               <input
                 id="quiz-code-input"
                 type="text"
+                inputMode="numeric"
                 value={code}
                 onChange={(e) => {
-                  setCode(e.target.value.toUpperCase());
+                  const val = e.target.value.replace(/\D/g, '').slice(0, 4);
+                  setCode(val);
                   setErrorMessage(null);
                 }}
-                maxLength={10}
-                placeholder="例如: CLOUD9"
+                maxLength={4}
+                placeholder="例如: 1001"
                 className="w-full text-center text-xl sm:text-2xl font-mono font-bold tracking-widest px-4 py-3 rounded-xl border-2 border-orange-200 focus:outline-none focus:ring-4 focus:ring-orange-100 focus:border-orange-500 uppercase bg-orange-50/20 text-slate-800 transition-all placeholder:text-slate-300"
                 autoFocus
               />
@@ -135,37 +158,50 @@ export const TakerPortal: React.FC<TakerPortalProps> = ({
           </button>
         </form>
 
-        {/* Quick Demo Quizzes */}
-        {demoQuizzes.length > 0 && (
+        {/* Published Quizzes from Database */}
+        {(isLoadingList || publishedQuizzes.length > 0) && (
           <div className="mt-8 pt-6 border-t border-slate-100">
             <div className="flex items-center justify-between mb-3">
               <span className="text-xs font-semibold text-slate-500 flex items-center space-x-1">
                 <Sparkles className="w-3.5 h-3.5 text-orange-500" />
                 <span>現有發布題組 (點擊直接代入測驗)</span>
               </span>
+              {isLoadingList && (
+                <span className="text-[11px] text-slate-400 flex items-center space-x-1">
+                  <Loader2 className="w-3 h-3 animate-spin text-orange-500" />
+                  <span>資料庫同步中...</span>
+                </span>
+              )}
             </div>
-            <div className="space-y-2">
-              {demoQuizzes.map((item) => (
-                <button
-                  key={item.code}
-                  type="button"
-                  onClick={() => handleQuickCode(item.code)}
-                  className="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-orange-50/70 border border-slate-200/80 hover:border-orange-200 transition-colors flex items-center justify-between group"
-                >
-                  <div className="truncate pr-2">
-                    <div className="text-xs font-bold text-slate-800 group-hover:text-orange-700 truncate">
-                      {item.title}
+            {isLoadingList ? (
+              <div className="space-y-2">
+                <div className="h-12 rounded-xl bg-slate-100/80 animate-pulse border border-slate-200/50" />
+                <div className="h-12 rounded-xl bg-slate-100/80 animate-pulse border border-slate-200/50" />
+              </div>
+            ) : (
+              <div className="space-y-2">
+                {publishedQuizzes.map((item) => (
+                  <button
+                    key={item.code}
+                    type="button"
+                    onClick={() => handleQuickCode(item.code)}
+                    className="w-full text-left p-2.5 rounded-xl bg-slate-50 hover:bg-orange-50/70 border border-slate-200/80 hover:border-orange-200 transition-colors flex items-center justify-between group cursor-pointer"
+                  >
+                    <div className="truncate pr-2">
+                      <div className="text-xs font-bold text-slate-800 group-hover:text-orange-700 truncate">
+                        {item.title}
+                      </div>
+                      <div className="text-[11px] text-slate-500">
+                        出題者: {item.creatorName} • 共 {item.questionCount} 題
+                      </div>
                     </div>
-                    <div className="text-[11px] text-slate-500">
-                      出題者: {item.creatorName} • 共 {item.questionCount} 題
+                    <div className="px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-white text-orange-700 border border-orange-200 shrink-0 shadow-2xs">
+                      {item.code}
                     </div>
-                  </div>
-                  <div className="px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-white text-orange-700 border border-orange-200 shrink-0">
-                    {item.code}
-                  </div>
-                </button>
-              ))}
-            </div>
+                  </button>
+                ))}
+              </div>
+            )}
           </div>
         )}
 

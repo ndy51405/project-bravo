@@ -8,24 +8,24 @@
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
 -- 1. 題組資料表 (Quizzes)
--- 記錄出題者 UUID、出題者名稱、標題、描述與大寫英數字題組代碼
+-- 記錄出題者 UUID、出題者名稱、標題、描述與 4 位數字題組代碼
 CREATE TABLE IF NOT EXISTS public.quizzes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     creator_id UUID NOT NULL,
     creator_name VARCHAR(100) DEFAULT '出題者',
     title VARCHAR(150) NOT NULL,
     description TEXT,
-    quiz_code VARCHAR(12) NOT NULL UNIQUE,
+    quiz_code TEXT NOT NULL UNIQUE,
     is_published BOOLEAN NOT NULL DEFAULT TRUE,
     created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
     updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    CONSTRAINT quiz_code_uppercase_alphanumeric CHECK (quiz_code ~ '^[A-Z0-9]{4,12}$')
+    CONSTRAINT quiz_code_four_digits CHECK (quiz_code ~ '^[0-9]{4}$')
 );
 
 COMMENT ON TABLE public.quizzes IS '題組主表，記錄出題者、名稱、描述與專屬代碼';
 COMMENT ON COLUMN public.quizzes.creator_id IS '題組建立者 UUID (對應 Supabase Auth 或訪客 ID)';
 COMMENT ON COLUMN public.quizzes.creator_name IS '出題者名稱';
-COMMENT ON COLUMN public.quizzes.quiz_code IS '題組密碼/代碼，由大寫英文與數字組成，供答題者輸入';
+COMMENT ON COLUMN public.quizzes.quiz_code IS '題組密碼/代碼，由 4 位數字組成，供答題者輸入';
 
 -- 2. 題目資料表 (Questions)
 -- 題組內的題目資料，包含題目、答案、解析、外鍵是 Quizzes 主鍵

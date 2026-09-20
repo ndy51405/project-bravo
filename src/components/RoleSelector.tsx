@@ -67,7 +67,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
               </li>
               <li className="flex items-center space-x-2">
                 <CheckCircle2 className="w-4 h-4 text-teal-600 shrink-0" />
-                <span>生成大寫英數題組密碼 (Quiz Code)</span>
+                <span>生成 4 位數字題組密碼 (Quiz Code)</span>
               </li>
               <li className="flex items-center space-x-2">
                 <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0" />

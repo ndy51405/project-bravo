@@ -14,6 +14,7 @@ router.post('/auth/register', AuthController.register);
 
 // Quizzes
 router.post('/sync-quizzes', QuizController.syncSeed);
+router.get('/quizzes/published', QuizController.getPublished);
 router.get('/quizzes/code/:code', QuizController.getByCode);
 router.get('/quizzes/creator/:creatorId', QuizController.getByCreator);
 router.post('/quizzes', QuizController.saveQuiz);
