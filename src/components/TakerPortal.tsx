@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import { StorageService } from '../services/storage';
+import { quizApi } from '../api/quizApi';
 import { Quiz, Question, User } from '../types';
-import { KeyRound, ArrowRight, AlertCircle, Sparkles, BookOpen, CheckCircle2 } from 'lucide-react';
+import { KeyRound, ArrowRight, AlertCircle, Sparkles } from 'lucide-react';
 
 interface TakerPortalProps {
   currentUser: User | null;
@@ -32,20 +32,19 @@ export const TakerPortal: React.FC<TakerPortalProps> = ({
     setIsLoading(true);
     setErrorMessage(null);
 
-    // Look up quiz in Supabase and local storage
     try {
-      const found = await StorageService.findQuizByCodeAsync(cleanCode);
+      const found = await quizApi.getQuizByCode(cleanCode);
       setIsLoading(false);
 
-      if (!found || found.questions.length === 0) {
-        setErrorMessage('查無此題組密碼，請確認後重新輸入！');
+      if (!found || !found.questions || found.questions.length === 0) {
+        setErrorMessage('查無此題組密碼或該測驗尚未公開，請確認後重新輸入！');
         return;
       }
 
       onStartQuiz(found.quiz, found.questions);
-    } catch (e) {
+    } catch (e: any) {
       setIsLoading(false);
-      setErrorMessage('查詢題組時發生錯誤，請稍後重試');
+      setErrorMessage(e?.message || '查詢題組時發生錯誤，請稍後重試');
     }
   };
 
@@ -54,17 +53,23 @@ export const TakerPortal: React.FC<TakerPortalProps> = ({
     setErrorMessage(null);
     setIsLoading(true);
     try {
-      const found = await StorageService.findQuizByCodeAsync(quickCode);
+      const found = await quizApi.getQuizByCode(quickCode);
       setIsLoading(false);
-      if (found) {
+      if (found && found.questions.length > 0) {
         onStartQuiz(found.quiz, found.questions);
+      } else {
+        setErrorMessage('查無此題組密碼');
       }
-    } catch {
+    } catch (e: any) {
       setIsLoading(false);
+      setErrorMessage(e?.message || '查詢題組時發生錯誤');
     }
   };
 
-  const demoQuizzes = StorageService.getAvailableDemoCodes();
+  const demoQuizzes = [
+    { code: 'CLOUD9', title: '基礎雲端架構與 Web 核心測驗', creatorName: '陳教授 (Prof. Chen)', questionCount: 3 },
+    { code: 'TS2026', title: 'TypeScript & 前端開發核心挑戰', creatorName: '陳教授 (Prof. Chen)', questionCount: 2 },
+  ];
 
   return (
     <div className="max-w-xl mx-auto px-4 py-12 sm:py-16">
@@ -140,7 +145,7 @@ export const TakerPortal: React.FC<TakerPortalProps> = ({
               </span>
             </div>
             <div className="space-y-2">
-              {demoQuizzes.map(item => (
+              {demoQuizzes.map((item) => (
                 <button
                   key={item.code}
                   type="button"

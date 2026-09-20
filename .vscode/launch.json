@@ -1,0 +1,39 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "🚀 偵錯後端 (Node / Express + tsx)",
+      "type": "node",
+      "request": "launch",
+      "runtimeExecutable": "npx",
+      "runtimeArgs": [
+        "tsx",
+        "watch",
+        "server/index.ts"
+      ],
+      "restart": true,
+      "console": "integratedTerminal",
+      "internalConsoleOptions": "neverOpen",
+      "skipFiles": [
+        "<node_internals>/**"
+      ]
+    },
+    {
+      "name": "🌐 偵錯前端 (Chrome / Edge 瀏覽器)",
+      "type": "chrome",
+      "request": "launch",
+      "url": "http://localhost:3000",
+      "webRoot": "${workspaceFolder}"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "⚡ 全端同步偵錯 (後端 Server + 前端 Chrome)",
+      "configurations": [
+        "🚀 偵錯後端 (Node / Express + tsx)",
+        "🌐 偵錯前端 (Chrome / Edge 瀏覽器)"
+      ]
+    }
+  ]
+}
+

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { SupabaseService, SUPABASE_URL } from '../services/supabase';
-import { StorageService } from '../services/storage';
+import { SUPABASE_URL } from '../services/supabase';
+import { useAuth } from '../context/AuthContext';
 import { 
   BookOpen, 
   LogIn, 
@@ -13,8 +13,7 @@ import {
   AlertCircle, 
   ArrowRight, 
   Database, 
-  Sparkles,
-  ShieldCheck
+  ShieldCheck 
 } from 'lucide-react';
 
 interface LoginViewProps {
@@ -22,6 +21,7 @@ interface LoginViewProps {
 }
 
 export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
+  const { login, register, loginAsGuest } = useAuth();
   const [activeTab, setActiveTab] = useState<'signin' | 'signup' | 'guest'>('signin');
   
   // Form states
@@ -37,16 +37,6 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
   const [errorMessage, setErrorMessage] = useState('');
   const [successMessage, setSuccessMessage] = useState('');
 
-  // Check if there are local quizzes to inform the user
-  const localQuizCount = (() => {
-    try {
-      const q = JSON.parse(localStorage.getItem('online_quiz_quizzes') || '[]');
-      return q.length;
-    } catch {
-      return 0;
-    }
-  })();
-
   const handleSignIn = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!email.trim() || !password) {
@@ -59,22 +49,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     setSuccessMessage('');
 
     try {
-      const result = await SupabaseService.signInWithEmail(email, password);
-      if (result.error) {
-        setErrorMessage(result.error);
-        setIsLoading(false);
+      const result = await login(email, password);
+      if (!result.success || !result.user) {
+        setErrorMessage(result.error || '登入失敗');
         return;
       }
 
-      if (result.user) {
-        setSuccessMessage('登入成功！正在載入測驗平台...');
-        StorageService.setCurrentUser(result.user);
-        // Automatically sync any locally created quizzes (such as the math quiz) into Supabase PostgreSQL
-        await StorageService.autoSyncAllLocalQuizzes(result.user);
-        setTimeout(() => {
-          onLoginSuccess(result.user!);
-        }, 400);
-      }
+      setSuccessMessage('登入成功！正在載入測驗平台...');
+      setTimeout(() => {
+        onLoginSuccess(result.user!);
+      }, 400);
     } catch (err: any) {
       setErrorMessage(err.message || '登入時發生錯誤');
     } finally {
@@ -99,27 +83,16 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
     setSuccessMessage('');
 
     try {
-      const result = await SupabaseService.signUpWithEmail(email, password, displayName);
-      if (result.error) {
-        setErrorMessage(result.error);
-        setIsLoading(false);
+      const result = await register(email, password, displayName);
+      if (!result.success || !result.user) {
+        setErrorMessage(result.error || '註冊失敗');
         return;
       }
 
-      if (result.user) {
-        if (result.requiresEmailConfirmation) {
-          setSuccessMessage('註冊請求已送出至 Supabase Auth！若您的專案啟用了信箱驗證，請至信箱點擊驗證連結，或可切換至「快速訪客模式」立即體驗。');
-        } else {
-          setSuccessMessage('註冊成功！帳號已直接寫入 Supabase Auth 系統，正在為您建立工作區...');
-        }
-
-        StorageService.setCurrentUser(result.user);
-        // Automatically sync any locally created quizzes into Supabase PostgreSQL
-        await StorageService.autoSyncAllLocalQuizzes(result.user);
-        setTimeout(() => {
-          onLoginSuccess(result.user!);
-        }, 600);
-      }
+      setSuccessMessage('註冊成功！帳號已建立，正在為您開啟工作區...');
+      setTimeout(() => {
+        onLoginSuccess(result.user!);
+      }, 600);
     } catch (err: any) {
       setErrorMessage(err.message || '註冊過程中發生錯誤');
     } finally {
@@ -129,17 +102,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
 
   const handleGuestLogin = (e: React.FormEvent) => {
     e.preventDefault();
-    const name = guestName.trim() || '訪客學者';
-    const user: User = {
-      id: crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-0000-0000-000000000003',
-      displayName: name,
-      authProvider: 'anonymous',
-      avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
-      createdAt: new Date().toISOString(),
-    };
-
-    StorageService.setCurrentUser(user);
-    StorageService.autoSyncAllLocalQuizzes(user);
+    const user = loginAsGuest(guestName);
     onLoginSuccess(user);
   };
 
@@ -282,7 +245,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   <span>驗證中...</span>
                 ) : (
                   <>
-                    <span>登入 Supabase Auth</span>
+                    <span>登入系統</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -294,7 +257,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           {activeTab === 'signup' && (
             <form onSubmit={handleSignUp} className="space-y-4">
               <div className="p-3 bg-teal-50/70 border border-teal-100 rounded-xl text-xs text-teal-800">
-                註冊帳號將直接寫入 <strong>Supabase Auth</strong> 系統，完全不需要維護自定義的 users 表。
+                註冊帳號將直接寫入 <strong>Supabase Auth</strong> 系統，安全且具備完整角色鑑權。
               </div>
 
               <div>
@@ -369,7 +332,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                   <span>註冊中...</span>
                 ) : (
                   <>
-                    <span>註冊至 Supabase Auth</span>
+                    <span>註冊帳號</span>
                     <ArrowRight className="w-4 h-4" />
                   </>
                 )}
@@ -415,20 +378,10 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
             </form>
           )}
 
-          {/* Local Math Quizzes Notification */}
-          {localQuizCount > 0 && (
-            <div className="mt-6 pt-4 border-t border-slate-100 text-[11px] text-slate-500 flex items-center space-x-2 bg-slate-50/60 p-2.5 rounded-lg">
-              <Sparkles className="w-4 h-4 text-teal-600 shrink-0" />
-              <div>
-                偵測到您本機瀏覽器中存有 <strong>{localQuizCount} 組題組（包含建立的 math 題組）</strong>，登入後將自動同步寫入 Supabase 雲端資料庫！
-              </div>
-            </div>
-          )}
-
           <div className="mt-5 pt-3 border-t border-slate-100 text-center">
             <div className="flex items-center justify-center space-x-1.5 text-[11px] text-slate-400">
               <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
-              <span>安全連線 • 無自訂 users 表 • 原生 Supabase Auth</span>
+              <span>安全連線 • Supabase PostgreSQL • 統一 API 架構</span>
             </div>
           </div>
         </div>

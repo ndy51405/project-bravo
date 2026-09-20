@@ -1,8 +1,7 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { StorageService } from '../services/storage';
-import { SupabaseService } from '../services/supabase';
-import { X, UserCircle, LogIn, UserPlus, Mail, Lock, User as UserIcon, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
+import { useAuth } from '../context/AuthContext';
+import { X, UserCircle, Mail, Lock, User as UserIcon, ArrowRight, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface AuthModalProps {
   isOpen: boolean;
@@ -17,6 +16,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
   onLoginSuccess,
   currentUser,
 }) => {
+  const { login, register, loginAsGuest } = useAuth();
   const [tab, setTab] = useState<'signin' | 'signup' | 'guest'>('signin');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -40,15 +40,13 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setSuccessMsg('');
 
     try {
-      const res = await SupabaseService.signInWithEmail(email, password);
+      const res = await login(email, password);
       if (res.error) {
         setErrorMsg(res.error);
         setIsLoading(false);
         return;
       }
       if (res.user) {
-        StorageService.setCurrentUser(res.user);
-        await StorageService.autoSyncAllLocalQuizzes(res.user);
         onLoginSuccess(res.user);
         onClose();
       }
@@ -74,16 +72,14 @@ export const AuthModal: React.FC<AuthModalProps> = ({
     setSuccessMsg('');
 
     try {
-      const res = await SupabaseService.signUpWithEmail(email, password, displayName);
+      const res = await register(email, password, displayName);
       if (res.error) {
         setErrorMsg(res.error);
         setIsLoading(false);
         return;
       }
       if (res.user) {
-        setSuccessMsg('註冊成功！已直接儲存至 Supabase Auth 認證系統。');
-        StorageService.setCurrentUser(res.user);
-        await StorageService.autoSyncAllLocalQuizzes(res.user);
+        setSuccessMsg('註冊成功！已直接建立帳號。');
         setTimeout(() => {
           onLoginSuccess(res.user!);
           onClose();
@@ -98,16 +94,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
 
   const handleGuestSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    const name = guestName.trim() || '訪客學者';
-    const user: User = {
-      id: crypto.randomUUID ? crypto.randomUUID() : '00000000-0000-0000-0000-000000000003',
-      displayName: name,
-      authProvider: 'anonymous',
-      avatarUrl: `https://api.dicebear.com/7.x/bottts/svg?seed=${encodeURIComponent(name)}`,
-      createdAt: new Date().toISOString(),
-    };
-    StorageService.setCurrentUser(user);
-    StorageService.autoSyncAllLocalQuizzes(user);
+    const user = loginAsGuest(guestName);
     onLoginSuccess(user);
     onClose();
   };

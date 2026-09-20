@@ -3,10 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
-import { User, AppRole, Quiz, Question, OptionKey, QuizSessionResult } from './types';
-import { StorageService } from './services/storage';
-import { SupabaseService } from './services/supabase';
+import React, { useState } from 'react';
+import { AppRole, Quiz, Question, OptionKey, QuizSessionResult, User } from './types';
+import { useAuth } from './context/AuthContext';
+import { useQuizzes } from './hooks/useQuizzes';
+import { quizApi } from './api/quizApi';
+import { responseApi } from './api/responseApi';
 import { Navbar } from './components/Navbar';
 import { RoleSelector } from './components/RoleSelector';
 import { CreatorDashboard } from './components/CreatorDashboard';
@@ -19,23 +21,13 @@ import { SqlViewerModal } from './components/SqlViewerModal';
 import { LoginView } from './components/LoginView';
 
 export default function App() {
-  const [currentUser, setCurrentUser] = useState<User | null>(() => StorageService.getCurrentUser());
+  const { currentUser, logout, setCurrentUser } = useAuth();
+  const { quizzes: myQuizzes, reloadQuizzes, deleteQuiz } = useQuizzes(currentUser);
   const [currentRole, setCurrentRole] = useState<AppRole | null>(null);
-
-  // Check Supabase Auth active session on startup
-  useEffect(() => {
-    SupabaseService.getCurrentAuthUser().then(authU => {
-      if (authU && !currentUser) {
-        setCurrentUser(authU);
-        StorageService.setCurrentUser(authU);
-      }
-    });
-  }, []);
 
   // Creator state
   const [creatorView, setCreatorView] = useState<'list' | 'editor'>('list');
   const [editingQuizId, setEditingQuizId] = useState<string | null>(null);
-  const [myQuizzes, setMyQuizzes] = useState<Quiz[]>([]);
 
   // Taker state
   const [takerView, setTakerView] = useState<'portal' | 'taking' | 'report'>('portal');
@@ -48,36 +40,6 @@ export default function App() {
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
   const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
 
-  // Load creator quizzes whenever currentUser changes
-  const reloadMyQuizzes = async () => {
-    if (currentUser) {
-      // First, auto-sync any local quizzes that haven't been written to Supabase yet
-      try {
-        await StorageService.autoSyncAllLocalQuizzes(currentUser);
-      } catch (syncErr) {
-        console.warn('[App] Auto sync local quizzes notice:', syncErr);
-      }
-
-      const list = StorageService.getQuizzesByCreator(currentUser.id);
-      setMyQuizzes(list);
-      // Asynchronously refresh from Supabase and merge
-      try {
-        const refreshed = await StorageService.refreshQuizzesFromSupabase(currentUser.id);
-        if (refreshed) {
-          setMyQuizzes(refreshed);
-        }
-      } catch (err) {
-        console.warn('[App] Failed to refresh quizzes from Supabase:', err);
-      }
-    } else {
-      setMyQuizzes([]);
-    }
-  };
-
-  useEffect(() => {
-    reloadMyQuizzes();
-  }, [currentUser]);
-
   // Handle Role Selection
   const handleSelectRole = (role: AppRole | null) => {
     if (!currentUser && role) {
@@ -88,7 +50,7 @@ export default function App() {
     if (role === 'creator') {
       setCreatorView('list');
       setEditingQuizId(null);
-      reloadMyQuizzes();
+      reloadQuizzes();
     } else if (role === 'taker') {
       setTakerView('portal');
     }
@@ -105,27 +67,39 @@ export default function App() {
     setCreatorView('editor');
   };
 
-  const handleDeleteQuiz = (quizId: string) => {
+  const handleDeleteQuiz = async (quizId: string) => {
     if (!currentUser) return;
-    StorageService.deleteQuiz(quizId, currentUser.id);
-    reloadMyQuizzes();
+    await deleteQuiz(quizId);
   };
 
-  const handleSaveQuizSuccess = (savedQuiz: Quiz) => {
+  const handleSaveQuizSuccess = (_savedQuiz: Quiz) => {
     setCreatorView('list');
     setEditingQuizId(null);
-    reloadMyQuizzes();
+    reloadQuizzes();
   };
 
   // Test take quiz from Creator view
-  const handleTestTakeQuiz = (quizCode: string) => {
+  const handleTestTakeQuiz = async (quizCode: string) => {
     setPresetTakerCode(quizCode);
-    const found = StorageService.findQuizByCode(quizCode);
-    if (found) {
-      setActiveTakingQuiz(found.quiz);
-      setActiveQuestions(found.questions);
+    const inMem = myQuizzes.find((q) => q.quizCode === quizCode);
+    if (inMem && inMem.questions && inMem.questions.length > 0) {
+      setActiveTakingQuiz(inMem);
+      setActiveQuestions(inMem.questions);
       setTakerView('taking');
       setCurrentRole('taker');
+      return;
+    }
+
+    try {
+      const found = await quizApi.getQuizByCode(quizCode);
+      if (found) {
+        setActiveTakingQuiz(found.quiz);
+        setActiveQuestions(found.questions);
+        setTakerView('taking');
+        setCurrentRole('taker');
+      }
+    } catch (e) {
+      console.warn('Test take quiz error:', e);
     }
   };
 
@@ -136,9 +110,9 @@ export default function App() {
     setTakerView('taking');
   };
 
-  const handleSubmitQuiz = (answers: Record<string, OptionKey>, totalTimeSeconds: number) => {
+  const handleSubmitQuiz = async (answers: Record<string, OptionKey>, totalTimeSeconds: number) => {
     if (!activeTakingQuiz) return;
-    const result = StorageService.submitQuizSession(
+    const result = await responseApi.submitAndCalculate(
       activeTakingQuiz,
       activeQuestions,
       answers,
@@ -147,7 +121,7 @@ export default function App() {
     );
     setQuizResult(result);
     setTakerView('report');
-    reloadMyQuizzes();
+    reloadQuizzes();
   };
 
   const handleRetakeQuiz = () => {
@@ -175,18 +149,15 @@ export default function App() {
   // Auth actions
   const handleLoginSuccess = (user: User) => {
     setCurrentUser(user);
-    reloadMyQuizzes();
+    reloadQuizzes();
   };
 
   const handleLogout = async () => {
-    await SupabaseService.signOut();
-    StorageService.logout();
-    setCurrentUser(null);
+    await logout();
     setCurrentRole(null);
-    setMyQuizzes([]);
   };
 
-  // If not logged in, the primary initial screen is the Login / Register screen
+  // If not logged in, show LoginView
   if (!currentUser) {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
@@ -235,7 +206,7 @@ export default function App() {
                 onEditQuiz={handleEditQuiz}
                 onDeleteQuiz={handleDeleteQuiz}
                 onTestTakeQuiz={handleTestTakeQuiz}
-                onRefreshQuizzes={reloadMyQuizzes}
+                onRefreshQuizzes={reloadQuizzes}
               />
             )}
 
@@ -243,6 +214,7 @@ export default function App() {
               <QuizEditor
                 currentUser={currentUser}
                 initialQuizId={editingQuizId}
+                initialQuiz={myQuizzes.find((q) => q.id === editingQuizId)}
                 onSaveSuccess={handleSaveQuizSuccess}
                 onCancel={() => {
                   setCreatorView('list');
@@ -289,7 +261,7 @@ export default function App() {
         )}
       </main>
 
-      {/* Auth Modal (Anonymous or Google) */}
+      {/* Auth Modal */}
       <AuthModal
         isOpen={isAuthModalOpen}
         onClose={() => setIsAuthModalOpen(false)}

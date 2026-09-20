@@ -1,15 +1,12 @@
 import React, { useState } from 'react';
 import { Quiz, User } from '../types';
-import { StorageService } from '../services/storage';
+import { quizApi } from '../api/quizApi';
 import { 
   Plus, 
   Copy, 
   Check, 
   Trash2, 
   Edit3, 
-  Users, 
-  Award, 
-  HelpCircle, 
   Search, 
   ShieldCheck, 
   ExternalLink,
@@ -44,19 +41,15 @@ export const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
 
   const handleManualSync = async () => {
     setIsSyncing(true);
-    setSyncStatus('正在同步本機與雲端題組至 Supabase...');
+    setSyncStatus('正在同步範例題組至 Supabase PostgreSQL 資料庫...');
     try {
-      const res = await StorageService.autoSyncAllLocalQuizzes(currentUser);
+      const res = await quizApi.syncSeedQuizzes();
       if (onRefreshQuizzes) {
         onRefreshQuizzes();
       }
-      if (res.successCount > 0) {
-        setSyncStatus(`已成功將 ${res.successCount} 組題組同步寫入 Supabase 資料庫！`);
-      } else {
-        setSyncStatus('同步完成，題組皆已儲存至 Supabase 資料庫！');
-      }
-    } catch {
-      setSyncStatus('同步完成');
+      setSyncStatus(`同步完成！已將 ${res.count} 組官方範例題組寫入資料庫！`);
+    } catch (err: any) {
+      setSyncStatus(err?.message || '同步失敗');
     } finally {
       setIsSyncing(false);
       setTimeout(() => setSyncStatus(null), 4500);
@@ -71,10 +64,11 @@ export const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
     }, 2000);
   };
 
-  const filteredQuizzes = quizzes.filter(q => 
-    q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    q.quizCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
-    q.description.toLowerCase().includes(searchQuery.toLowerCase())
+  const filteredQuizzes = quizzes.filter(
+    (q) =>
+      q.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      q.quizCode.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      q.description.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
   return (
@@ -102,7 +96,7 @@ export const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
             onClick={handleManualSync}
             disabled={isSyncing}
             className="inline-flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 shadow-2xs transition-all cursor-pointer"
-            title="將瀏覽器快取中的題組（包含 math 題組）同步儲存至 Supabase"
+            title="將範例題組同步儲存至 Supabase"
           >
             <CloudUpload className={`w-4 h-4 ${isSyncing ? 'animate-bounce' : ''}`} />
             <span>{isSyncing ? '同步中...' : '同步至 Supabase'}</span>
@@ -180,7 +174,7 @@ export const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
         </div>
       ) : (
         <div className="mt-6 grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredQuizzes.map(quiz => {
+          {filteredQuizzes.map((quiz) => {
             const questionCount = quiz.questions?.length || 0;
             const isDeleting = deleteConfirmId === quiz.id;
 

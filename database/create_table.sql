@@ -1,34 +1,18 @@
 -- ========================================================================
 -- Supabase PostgreSQL 建立資料庫表格結構 (Multi-tenant Quiz Schema)
--- 包含：Users, Quizzes, Questions, Options, Responses
+-- 包含：Quizzes, Questions, Options, Responses (無需自訂 users 表，原生對接 Supabase Auth)
 -- 包含主鍵、外鍵、檢查約束、索引 (Indexes) 與 Row Level Security (RLS) 安全策略
 -- ========================================================================
 
 -- 啟用必要擴充功能 (UUID 生成)
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. 使用者資料表 (Users)
--- 支援匿名註冊 (姓名 + 密碼雜湊) 與 Google OAuth 登入
-CREATE TABLE IF NOT EXISTS public.users (
-    id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    email TEXT UNIQUE,
-    display_name TEXT NOT NULL,
-    auth_provider TEXT NOT NULL DEFAULT 'anonymous' CHECK (auth_provider IN ('anonymous', 'google')),
-    password_hash TEXT, -- 匿名帳戶密碼雜湊 (Google 帳戶登入時可為 NULL)
-    avatar_url TEXT,
-    created_at TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-    updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
-);
-
-COMMENT ON TABLE public.users IS '使用者帳戶資料表，支援匿名與 Google OAuth 多租戶登入';
-COMMENT ON COLUMN public.users.display_name IS '使用者顯示姓名';
-COMMENT ON COLUMN public.users.auth_provider IS '認證方式: anonymous 或 google';
-
--- 2. 題組資料表 (Quizzes)
--- 各個使用者建立的題組主檔，包含建立者外鍵、名稱、描述與大寫英數字題組代碼
+-- 1. 題組資料表 (Quizzes)
+-- 記錄出題者 UUID、出題者名稱、標題、描述與大寫英數字題組代碼
 CREATE TABLE IF NOT EXISTS public.quizzes (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-    creator_id UUID NOT NULL REFERENCES public.users(id) ON DELETE CASCADE,
+    creator_id UUID NOT NULL,
+    creator_name VARCHAR(100) DEFAULT '出題者',
     title VARCHAR(150) NOT NULL,
     description TEXT,
     quiz_code VARCHAR(12) NOT NULL UNIQUE,
@@ -39,10 +23,11 @@ CREATE TABLE IF NOT EXISTS public.quizzes (
 );
 
 COMMENT ON TABLE public.quizzes IS '題組主表，記錄出題者、名稱、描述與專屬代碼';
-COMMENT ON COLUMN public.quizzes.creator_id IS '題組建立者 (Foreign key -> users.id)';
+COMMENT ON COLUMN public.quizzes.creator_id IS '題組建立者 UUID (對應 Supabase Auth 或訪客 ID)';
+COMMENT ON COLUMN public.quizzes.creator_name IS '出題者名稱';
 COMMENT ON COLUMN public.quizzes.quiz_code IS '題組密碼/代碼，由大寫英文與數字組成，供答題者輸入';
 
--- 3. 題目資料表 (Questions)
+-- 2. 題目資料表 (Questions)
 -- 題組內的題目資料，包含題目、答案、解析、外鍵是 Quizzes 主鍵
 CREATE TABLE IF NOT EXISTS public.questions (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -59,7 +44,7 @@ COMMENT ON TABLE public.questions IS '單選題目表，每個題目隸屬於一
 COMMENT ON COLUMN public.questions.correct_option IS '正確選項字母 (A, B, C, D, E)';
 COMMENT ON COLUMN public.questions.explanation IS '題目答案解析 (選填)';
 
--- 4. 選項資料表 (Options)
+-- 3. 選項資料表 (Options)
 -- Question 的選項，pk 使用 (question_id + option_key 其一)，foreign key 是 question_id
 CREATE TABLE IF NOT EXISTS public.options (
     question_id UUID NOT NULL REFERENCES public.questions(id) ON DELETE CASCADE,
@@ -73,12 +58,13 @@ COMMENT ON TABLE public.options IS '題目選項表，主鍵為 (question_id, op
 COMMENT ON COLUMN public.options.option_key IS '選項代號 (A, B, C, D, E)';
 COMMENT ON COLUMN public.options.option_text IS '選項內文';
 
--- 5. 作答紀錄資料表 (Responses)
+-- 4. 作答紀錄資料表 (Responses)
 -- 記錄使用者作答結果，包含 answer_time, quiz_id, question_id, 選擇的選項, 答對與否等
 CREATE TABLE IF NOT EXISTS public.responses (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     session_id UUID NOT NULL, -- 每次測驗作答階段的識別碼
-    user_id UUID REFERENCES public.users(id) ON DELETE SET NULL,
+    user_id UUID,
+    user_name VARCHAR(100),
     quiz_id UUID NOT NULL REFERENCES public.quizzes(id) ON DELETE CASCADE,
     question_id UUID NOT NULL REFERENCES public.questions(id) ON DELETE CASCADE,
     selected_option VARCHAR(1) NOT NULL CHECK (selected_option IN ('A', 'B', 'C', 'D', 'E')),

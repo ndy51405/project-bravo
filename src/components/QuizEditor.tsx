@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { Quiz, Question, OptionKey, OptionItem, User } from '../types';
-import { StorageService } from '../services/storage';
+import { quizApi } from '../api/quizApi';
+import { generateUUID } from '../utils/uuid';
 import { 
   ArrowLeft, 
   Plus, 
@@ -19,6 +20,7 @@ import {
 interface QuizEditorProps {
   currentUser: User;
   initialQuizId?: string | null;
+  initialQuiz?: Quiz | null;
   onSaveSuccess: (savedQuiz: Quiz) => void;
   onCancel: () => void;
 }
@@ -36,15 +38,14 @@ interface FormQuestion {
 export const QuizEditor: React.FC<QuizEditorProps> = ({
   currentUser,
   initialQuizId,
+  initialQuiz,
   onSaveSuccess,
   onCancel,
 }) => {
-  const isEditing = Boolean(initialQuizId);
+  const isEditing = Boolean(initialQuizId || initialQuiz);
 
-  // Load initial data if editing
-  const existingQuiz = initialQuizId 
-    ? StorageService.getQuizForCreator(initialQuizId, currentUser.id) 
-    : null;
+  // Use provided initialQuiz
+  const existingQuiz = initialQuiz || null;
 
   const [title, setTitle] = useState(existingQuiz?.title || '');
   const [description, setDescription] = useState(existingQuiz?.description || '');
@@ -222,9 +223,10 @@ export const QuizEditor: React.FC<QuizEditorProps> = ({
 
     setIsSaving(true);
     try {
-      const saved = await StorageService.saveQuiz(
+      const res = await quizApi.saveQuiz(
         {
           id: existingQuiz?.id,
+          quizCode: existingQuiz?.quizCode,
           title: title.trim(),
           description: description.trim(),
           questions: questions.map((q, idx) => ({
@@ -239,11 +241,32 @@ export const QuizEditor: React.FC<QuizEditorProps> = ({
         currentUser
       );
 
+      const savedQuiz: Quiz = {
+        id: res.quizId,
+        creatorId: currentUser.id,
+        creatorName: currentUser.displayName,
+        title: title.trim(),
+        description: description.trim(),
+        quizCode: res.quizCode,
+        isPublished: true,
+        createdAt: existingQuiz?.createdAt || new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+        questions: questions.map((q, idx) => ({
+          id: q.id || generateUUID(),
+          quizId: res.quizId,
+          questionOrder: idx + 1,
+          questionText: q.questionText,
+          correctOption: q.correctOption,
+          explanation: q.explanation || '',
+          options: q.options,
+        })),
+      };
+
       if (!isEditing) {
         // Show success modal with generated Quiz Code
-        setCreatedResultQuiz(saved);
+        setCreatedResultQuiz(savedQuiz);
       } else {
-        onSaveSuccess(saved);
+        onSaveSuccess(savedQuiz);
       }
     } catch (err: any) {
       setValidationError(err.message || '儲存失敗，請稍後重試');

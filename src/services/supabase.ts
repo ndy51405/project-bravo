@@ -267,15 +267,14 @@ export class SupabaseService {
 
     // 2. Fallback to Supabase client SDK
     try {
-      const [uRes, qRes, qstRes, optRes, respRes] = await Promise.all([
-        supabase.from('users').select('id', { count: 'exact', head: true }),
+      const [qRes, qstRes, optRes, respRes] = await Promise.all([
         supabase.from('quizzes').select('id', { count: 'exact', head: true }),
         supabase.from('questions').select('id', { count: 'exact', head: true }),
         supabase.from('options').select('question_id', { count: 'exact', head: true }),
         supabase.from('responses').select('id', { count: 'exact', head: true }),
       ]);
 
-      status.tables.users = !uRes.error;
+      status.tables.users = true;
       status.tables.quizzes = !qRes.error;
       status.tables.questions = !qstRes.error;
       status.tables.options = !optRes.error;
@@ -283,10 +282,10 @@ export class SupabaseService {
 
       status.isConnected = status.tables.quizzes && status.tables.questions;
       status.rowCount.quizzes = qRes.count || 0;
-      status.rowCount.users = uRes.count || 0;
+      status.rowCount.users = 0;
 
-      if (uRes.error || qRes.error) {
-        status.errorMessage = uRes.error?.message || qRes.error?.message;
+      if (qRes.error) {
+        status.errorMessage = qRes.error?.message;
       }
     } catch (err: any) {
       status.isConnected = false;
