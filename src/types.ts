@@ -1,5 +1,5 @@
 /**
- * Multi-tenant Quiz Application Type Definitions
+ * Bravo Quiz Platform Type Definitions
  * Matches the Supabase schema in database/create_table.sql
  */
 

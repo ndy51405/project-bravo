@@ -116,7 +116,7 @@ export const AuthModal: React.FC<AuthModalProps> = ({
                 {currentUser ? '切換或重新登入' : '登入 / 註冊系統'}
               </h3>
               <p className="text-xs text-slate-500">
-                原生 Supabase Auth 認證 (免 users 表)
+                安全快速的個人化學習與測驗服務
               </p>
             </div>
           </div>

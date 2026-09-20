@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { User } from '../types';
-import { SUPABASE_URL } from '../services/supabase';
 import { useAuth } from '../context/AuthContext';
 import { 
   BookOpen, 
@@ -12,7 +11,6 @@ import {
   CheckCircle2, 
   AlertCircle, 
   ArrowRight, 
-  Database, 
   ShieldCheck 
 } from 'lucide-react';
 
@@ -113,21 +111,11 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           <BookOpen className="w-8 h-8 text-white" />
         </div>
         <h2 className="text-2xl font-bold tracking-tight text-slate-800">
-          多租戶測驗與學習診斷平台
+          Bravo自助測驗平台
         </h2>
         <p className="mt-1 text-sm text-slate-600">
           登入以管理個人題組、產生專屬密碼與即時診斷報告
         </p>
-
-        {/* Supabase Status Pill */}
-        <div className="mt-3 inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs">
-          <span className="w-2 h-2 rounded-full bg-emerald-500 animate-pulse"></span>
-          <Database className="w-3.5 h-3.5 text-emerald-600" />
-          <span className="font-semibold">Supabase Auth 已就緒</span>
-          <span className="text-[11px] text-emerald-600 font-mono">
-            {SUPABASE_URL.replace('https://', '')}
-          </span>
-        </div>
       </div>
 
       <div className="mt-8 sm:mx-auto sm:w-full sm:max-w-md px-4">
@@ -239,7 +227,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 id="signin-submit-btn"
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 transition-colors shadow-sm flex items-center justify-center space-x-2"
+                className="w-full mt-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 transition-colors shadow-sm flex items-center justify-center space-x-2 cursor-pointer"
               >
                 {isLoading ? (
                   <span>驗證中...</span>
@@ -257,7 +245,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           {activeTab === 'signup' && (
             <form onSubmit={handleSignUp} className="space-y-4">
               <div className="p-3 bg-teal-50/70 border border-teal-100 rounded-xl text-xs text-teal-800">
-                註冊帳號將直接寫入 <strong>Supabase Auth</strong> 系統，安全且具備完整角色鑑權。
+                註冊個人出題帳號，安全且具備完整功能。
               </div>
 
               <div>
@@ -326,7 +314,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
                 id="signup-submit-btn"
                 type="submit"
                 disabled={isLoading}
-                className="w-full mt-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 transition-colors shadow-sm flex items-center justify-center space-x-2"
+                className="w-full mt-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-white bg-teal-600 hover:bg-teal-700 disabled:opacity-50 transition-colors shadow-sm flex items-center justify-center space-x-2 cursor-pointer"
               >
                 {isLoading ? (
                   <span>註冊中...</span>
@@ -370,7 +358,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
               <button
                 id="guest-submit-btn"
                 type="submit"
-                className="w-full mt-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors shadow-xs flex items-center justify-center space-x-2"
+                className="w-full mt-2 py-2.5 px-4 rounded-xl text-sm font-semibold text-slate-700 bg-slate-100 hover:bg-slate-200 transition-colors shadow-xs flex items-center justify-center space-x-2 cursor-pointer"
               >
                 <span>以訪客身份進入平台</span>
                 <ArrowRight className="w-4 h-4 text-slate-500" />
@@ -381,7 +369,7 @@ export const LoginView: React.FC<LoginViewProps> = ({ onLoginSuccess }) => {
           <div className="mt-5 pt-3 border-t border-slate-100 text-center">
             <div className="flex items-center justify-center space-x-1.5 text-[11px] text-slate-400">
               <ShieldCheck className="w-3.5 h-3.5 text-teal-600" />
-              <span>安全連線 • Supabase PostgreSQL • 統一 API 架構</span>
+              <span>安全連線 • 資料加密傳輸</span>
             </div>
           </div>
         </div>

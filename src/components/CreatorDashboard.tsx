@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import { Quiz, User } from '../types';
-import { quizApi } from '../api/quizApi';
 import { 
   Plus, 
   Copy, 
@@ -10,8 +9,7 @@ import {
   Search, 
   ShieldCheck, 
   ExternalLink,
-  BookOpen,
-  CloudUpload
+  BookOpen
 } from 'lucide-react';
 
 interface CreatorDashboardProps {
@@ -31,30 +29,10 @@ export const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
   onEditQuiz,
   onDeleteQuiz,
   onTestTakeQuiz,
-  onRefreshQuizzes,
 }) => {
   const [copiedCode, setCopiedCode] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [deleteConfirmId, setDeleteConfirmId] = useState<string | null>(null);
-  const [syncStatus, setSyncStatus] = useState<string | null>(null);
-  const [isSyncing, setIsSyncing] = useState(false);
-
-  const handleManualSync = async () => {
-    setIsSyncing(true);
-    setSyncStatus('正在同步範例題組至 Supabase PostgreSQL 資料庫...');
-    try {
-      const res = await quizApi.syncSeedQuizzes();
-      if (onRefreshQuizzes) {
-        onRefreshQuizzes();
-      }
-      setSyncStatus(`同步完成！已將 ${res.count} 組官方範例題組寫入資料庫！`);
-    } catch (err: any) {
-      setSyncStatus(err?.message || '同步失敗');
-    } finally {
-      setIsSyncing(false);
-      setTimeout(() => setSyncStatus(null), 4500);
-    }
-  };
 
   const handleCopyCode = (code: string) => {
     navigator.clipboard.writeText(code);
@@ -91,18 +69,6 @@ export const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
 
         <div className="flex items-center space-x-3 self-start sm:self-auto">
           <button
-            id="sync-quizzes-btn"
-            type="button"
-            onClick={handleManualSync}
-            disabled={isSyncing}
-            className="inline-flex items-center space-x-1.5 px-3.5 py-2.5 rounded-xl text-xs font-semibold text-teal-800 bg-teal-50 hover:bg-teal-100 border border-teal-200 shadow-2xs transition-all cursor-pointer"
-            title="將範例題組同步儲存至 Supabase"
-          >
-            <CloudUpload className={`w-4 h-4 ${isSyncing ? 'animate-bounce' : ''}`} />
-            <span>{isSyncing ? '同步中...' : '同步至 Supabase'}</span>
-          </button>
-
-          <button
             id="create-quiz-btn"
             type="button"
             onClick={onCreateNewQuiz}
@@ -114,19 +80,12 @@ export const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
         </div>
       </div>
 
-      {syncStatus && (
-        <div className="mt-3 p-3 bg-emerald-50 border border-emerald-200 text-emerald-800 rounded-xl text-xs flex items-center space-x-2">
-          <Check className="w-4 h-4 text-emerald-600 shrink-0" />
-          <span>{syncStatus}</span>
-        </div>
-      )}
-
-      {/* Multi-tenant Isolation Notice */}
+      {/* Privacy Protection Notice */}
       <div className="mt-4 p-3.5 bg-teal-50/70 rounded-xl border border-teal-200/80 flex items-start space-x-3 text-xs text-teal-900">
         <ShieldCheck className="w-4 h-4 text-teal-700 shrink-0 mt-0.5" />
         <div>
-          <strong>多租戶隱私防護已啟用：</strong>
-          您目前僅能瀏覽與編輯由自己帳戶建立的題組（共 {quizzes.length} 個）。系統嚴格隔離其他出題者的題組，保障出題內容隱私。
+          <strong>題組隱私防護已啟用：</strong>
+          您目前僅能瀏覽與編輯由自己帳戶建立的題組（共 {quizzes.length} 個）。系統嚴格保護您的出題內容隱私。
         </div>
       </div>
 
@@ -192,7 +151,7 @@ export const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
                         type="button"
                         onClick={() => handleCopyCode(quiz.quizCode)}
                         title="點擊複製題組密碼"
-                        className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-colors"
+                        className="inline-flex items-center space-x-1 px-2.5 py-1 rounded-md text-xs font-mono font-bold bg-teal-50 text-teal-700 border border-teal-200 hover:bg-teal-100 transition-colors cursor-pointer"
                       >
                         <span>{quiz.quizCode}</span>
                         {copiedCode === quiz.quizCode ? (
@@ -240,7 +199,7 @@ export const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
                   <button
                     type="button"
                     onClick={() => onTestTakeQuiz(quiz.quizCode)}
-                    className="inline-flex items-center space-x-1 text-xs font-semibold text-orange-600 hover:text-orange-700"
+                    className="inline-flex items-center space-x-1 text-xs font-semibold text-orange-600 hover:text-orange-700 cursor-pointer"
                     title="以答題者身份測試本題組"
                   >
                     <ExternalLink className="w-3.5 h-3.5" />
@@ -251,7 +210,7 @@ export const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
                     <button
                       type="button"
                       onClick={() => onEditQuiz(quiz.id)}
-                      className="p-1.5 rounded-lg text-slate-500 hover:text-teal-600 hover:bg-teal-50 transition-colors"
+                      className="p-1.5 rounded-lg text-slate-500 hover:text-teal-600 hover:bg-teal-50 transition-colors cursor-pointer"
                       title="編輯題組與題目"
                     >
                       <Edit3 className="w-4 h-4" />
@@ -266,14 +225,14 @@ export const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
                             onDeleteQuiz(quiz.id);
                             setDeleteConfirmId(null);
                           }}
-                          className="text-[11px] font-bold text-rose-700 hover:underline"
+                          className="text-[11px] font-bold text-rose-700 hover:underline cursor-pointer"
                         >
                           刪除
                         </button>
                         <button
                           type="button"
                           onClick={() => setDeleteConfirmId(null)}
-                          className="text-[11px] text-slate-400 hover:text-slate-600"
+                          className="text-[11px] text-slate-400 hover:text-slate-600 cursor-pointer"
                         >
                           取消
                         </button>
@@ -282,7 +241,7 @@ export const CreatorDashboard: React.FC<CreatorDashboardProps> = ({
                       <button
                         type="button"
                         onClick={() => setDeleteConfirmId(quiz.id)}
-                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                        className="p-1.5 rounded-lg text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors cursor-pointer"
                         title="刪除題組"
                       >
                         <Trash2 className="w-4 h-4" />

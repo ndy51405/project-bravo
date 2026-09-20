@@ -89,7 +89,7 @@ CREATE INDEX IF NOT EXISTS idx_responses_user ON public.responses(user_id);
 
 -- ========================================================================
 -- Supabase Row Level Security (RLS) 權限防護策略
--- 保證多租戶資料隔離：出題者只能讀取與編輯自己建立的題組，不能看或改他人的題組
+-- 保證使用者資料隱私隔離：出題者只能讀取與編輯自己建立的題組，不能看或改他人的題組
 -- ========================================================================
 
 ALTER TABLE public.quizzes ENABLE ROW LEVEL SECURITY;

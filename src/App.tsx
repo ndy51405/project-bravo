@@ -17,7 +17,6 @@ import { TakerPortal } from './components/TakerPortal';
 import { QuizTakerView } from './components/QuizTakerView';
 import { QuizReportView } from './components/QuizReportView';
 import { AuthModal } from './components/AuthModal';
-import { SqlViewerModal } from './components/SqlViewerModal';
 import { LoginView } from './components/LoginView';
 
 export default function App() {
@@ -38,7 +37,6 @@ export default function App() {
 
   // Modals
   const [isAuthModalOpen, setIsAuthModalOpen] = useState(false);
-  const [isSqlModalOpen, setIsSqlModalOpen] = useState(false);
 
   // Handle Role Selection
   const handleSelectRole = (role: AppRole | null) => {
@@ -162,12 +160,6 @@ export default function App() {
     return (
       <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
         <LoginView onLoginSuccess={handleLoginSuccess} />
-        {isSqlModalOpen && (
-          <SqlViewerModal
-            isOpen={isSqlModalOpen}
-            onClose={() => setIsSqlModalOpen(false)}
-          />
-        )}
       </div>
     );
   }
@@ -180,7 +172,6 @@ export default function App() {
         currentRole={currentRole}
         onSelectRole={handleSelectRole}
         onOpenAuth={() => setIsAuthModalOpen(true)}
-        onOpenSqlModal={() => setIsSqlModalOpen(true)}
         onLogout={handleLogout}
       />
 
@@ -267,12 +258,6 @@ export default function App() {
         onClose={() => setIsAuthModalOpen(false)}
         onLoginSuccess={handleLoginSuccess}
         currentUser={currentUser}
-      />
-
-      {/* Supabase SQL Schema Viewer Modal */}
-      <SqlViewerModal
-        isOpen={isSqlModalOpen}
-        onClose={() => setIsSqlModalOpen(false)}
       />
     </div>
   );

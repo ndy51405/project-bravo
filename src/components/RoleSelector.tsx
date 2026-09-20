@@ -1,6 +1,6 @@
 import React from 'react';
 import { AppRole, User } from '../types';
-import { PenTool, CheckCircle2, ArrowRight, ShieldCheck, KeyRound, Sparkles, BookOpen } from 'lucide-react';
+import { PenTool, CheckCircle2, ArrowRight, ShieldCheck, KeyRound, Sparkles } from 'lucide-react';
 
 interface RoleSelectorProps {
   currentUser: User | null;
@@ -19,7 +19,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
       <div className="text-center mb-10">
         <div className="inline-flex items-center space-x-2 px-3 py-1 rounded-full bg-teal-50 border border-teal-200 text-teal-800 text-xs font-medium mb-3">
           <Sparkles className="w-3.5 h-3.5 text-teal-600" />
-          <span>多租戶題庫與即時作答系統</span>
+          <span>Bravo自助測驗平台</span>
         </div>
         <h1 className="text-2xl sm:text-3xl font-bold text-slate-800 tracking-tight">
           歡迎，{currentUser?.displayName || '使用者'}！請選擇您的操作身分
@@ -56,7 +56,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
             </h2>
             <p className="mt-2 text-sm text-slate-600 leading-relaxed">
               建立專屬題組 (1~20 題)，自訂 2~5 個選項、正確答案與詳細解析。
-              系統自動產生專屬題組密碼，並保障多租戶隔離，其他人無法查看或編輯您的題組。
+              系統自動產生專屬題組密碼，並保障隱私隔離，其他人無法查看或編輯您的題組。
             </p>
 
             {/* Feature highlights */}
@@ -71,7 +71,7 @@ export const RoleSelector: React.FC<RoleSelectorProps> = ({
               </li>
               <li className="flex items-center space-x-2">
                 <ShieldCheck className="w-4 h-4 text-teal-600 shrink-0" />
-                <span>嚴格租戶隔離：僅能管理自己建立的題組</span>
+                <span>隱私安全防護：僅能管理自己建立的題組</span>
               </li>
             </ul>
           </div>
