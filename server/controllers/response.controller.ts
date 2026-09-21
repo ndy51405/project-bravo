@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { ResponseService } from '../services/response.service';
+import { logger } from '../utils/logger';
 
 export class ResponseController {
   static async submitResponse(req: Request, res: Response) {
@@ -16,6 +17,7 @@ export class ResponseController {
       res.json({ success: true });
     } catch (err: any) {
       console.error('Submit response error:', err);
+      logger.error({ err }, 'Submit response error');
       res.status(500).json({ error: err?.message || 'Database error' });
     }
   }

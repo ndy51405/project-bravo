@@ -3,13 +3,14 @@ import { Pool } from 'pg';
 import { drizzle } from 'drizzle-orm/node-postgres';
 import { createClient } from '@supabase/supabase-js';
 import * as schema from '../db/schema';
+import { logger } from '../utils/logger';
 
 dotenv.config();
 
 const dbUrl = process.env.DATABASE_URL?.trim();
 
 if (!dbUrl) {
-  console.warn(
+  logger.warn(
     '\n⚠️  [Database Warning] 未在 .env 檔案中偵測到有效的 DATABASE_URL！\n' +
     '👉 系統目前嘗試連線至本機預設 (127.0.0.1:5432)。\n' +
     '👉 若您是使用 Supabase 雲端資料庫，請至專案根目錄的 .env 檔案中填入 DATABASE_URL。\n'
@@ -29,7 +30,7 @@ export const db = drizzle(pool, { schema });
 
 pool.on('error', (err: any) => {
   if (err.code === 'ECONNREFUSED') {
-    console.error(
+    logger.error(
       `\n❌ [Database Connection Error] 無法連線至 PostgreSQL (${err.address}:${err.port})\n` +
       `📌 原因：目前連線目標為本機 127.0.0.1:5432，但您的本機 WSL 尚未啟動 PostgreSQL 服務，或尚未在 .env 設定 Supabase 的 DATABASE_URL。\n` +
       `💡 解法：\n` +
@@ -37,7 +38,7 @@ pool.on('error', (err: any) => {
       `   2. 本機模式：於 WSL 終端機執行 sudo service postgresql start 啟動本地資料庫。\n`
     );
   } else {
-    console.error('[DB Pool Error]', err);
+    logger.error({ err }, '[DB Pool Error]');
   }
 });
 

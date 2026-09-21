@@ -1,4 +1,5 @@
 import { adminSupabase } from '../config/db';
+import { logger } from '../utils/logger';
 
 export class AuthService {
   /**
@@ -24,6 +25,7 @@ export class AuthService {
 
     if (error) {
       console.warn('[AuthService.registerUser] Supabase error:', error.message);
+      logger.warn({ err: error.message }, '[AuthService.registerUser] Supabase error');
       if (error.message.includes('already been registered') || error.message.includes('already registered')) {
         throw new Error('此電子信箱已註冊，請直接進行登入');
       }

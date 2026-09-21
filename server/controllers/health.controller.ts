@@ -1,5 +1,6 @@
 import { Request, Response } from 'express';
 import { QuizRepository } from '../repositories/quiz.repository';
+import { logger } from '../utils/logger';
 
 export class HealthController {
   static async check(req: Request, res: Response) {
@@ -15,6 +16,7 @@ export class HealthController {
       });
     } catch (err: any) {
       console.error('Health check error:', err);
+      logger.error({ err }, 'Health check error');
       res.status(500).json({
         status: 'error',
         connection: 'failed',

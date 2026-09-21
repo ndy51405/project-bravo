@@ -3,12 +3,15 @@ import path from 'path';
 import dotenv from 'dotenv';
 import { createServer as createViteServer } from 'vite';
 import apiRouter from './routes/api.routes';
+import pinoHttp from 'pino-http';
+import { logger } from './utils/logger';
 
 dotenv.config();
 
 const app = express();
 const PORT = process.env.PORT ? parseInt(process.env.PORT, 10) : 3000;
 
+app.use(pinoHttp({ logger }));
 app.use(express.json({ limit: '10mb' }));
 
 // Mount API routes
@@ -31,8 +34,8 @@ async function startServer() {
   }
 
   app.listen(PORT, '0.0.0.0', () => {
-    console.log(`Server running on http://0.0.0.0:${PORT}`);
-    console.log(`Database connected via DATABASE_URL & SUPABASE_SECRET_KEY`);
+    logger.info(`Server running on http://0.0.0.0:${PORT}`);
+    logger.info('Database connected via DATABASE_URL & SUPABASE_SECRET_KEY');
   });
 }
 

@@ -1,10 +1,12 @@
 import { Request, Response } from 'express';
 import { QuizService } from '../services/quiz.service';
+import { logger } from '../utils/logger';
 
 export class QuizController {
   static async syncSeed(req: Request, res: Response) {
     try {
       console.log('[API] Syncing example quizzes to Supabase via DATABASE_URL & SUPABASE_SECRET_KEY...');
+      logger.info('[API] Syncing example quizzes to Supabase via DATABASE_URL & SUPABASE_SECRET_KEY...');
       const result = await QuizService.syncSeedQuizzes();
       res.json({
         success: true,
@@ -14,6 +16,7 @@ export class QuizController {
       });
     } catch (err: any) {
       console.error('[API] Sync error:', err);
+      logger.error({ err }, '[API] Sync error');
       res.status(500).json({
         success: false,
         error: err?.message || 'Failed to sync quizzes to database',
@@ -39,6 +42,7 @@ export class QuizController {
       res.json(quizzes);
     } catch (err: any) {
       console.error('Fetch creator quizzes error:', err);
+      logger.error({ err }, 'Fetch creator quizzes error');
       res.status(500).json({ error: err?.message || 'Database error' });
     }
   }
@@ -50,6 +54,7 @@ export class QuizController {
       res.json(quizzes);
     } catch (err: any) {
       console.error('Fetch published quizzes error:', err);
+      logger.error({ err }, 'Fetch published quizzes error');
       res.status(500).json({ error: err?.message || 'Database error' });
     }
   }
@@ -62,6 +67,7 @@ export class QuizController {
       res.json({ success: true, quizId: saved.id, quizCode: saved.quizCode });
     } catch (err: any) {
       console.error('Save quiz error:', err);
+      logger.error({ err }, 'Save quiz error');
       res.status(500).json({ error: err?.message || 'Database error' });
     }
   }
@@ -73,6 +79,7 @@ export class QuizController {
       res.json({ success: true, count: synced.length, quizzes: synced });
     } catch (err: any) {
       console.error('Batch sync error:', err);
+      logger.error({ err }, 'Batch sync error');
       res.status(500).json({ error: err?.message || 'Database sync error' });
     }
   }
@@ -84,6 +91,7 @@ export class QuizController {
       res.json({ success: true });
     } catch (err: any) {
       console.error('Delete quiz error:', err);
+      logger.error({ err }, 'Delete quiz error');
       res.status(500).json({ error: err?.message || 'Database error' });
     }
   }

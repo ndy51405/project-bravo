@@ -5,6 +5,7 @@
       "name": "🚀 偵錯後端 (Node / Express + tsx)",
       "type": "node",
       "request": "launch",
+      "cwd": "${workspaceFolder}",
       "runtimeExecutable": "npx",
       "runtimeArgs": [
         "tsx",
