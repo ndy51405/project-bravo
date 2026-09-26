@@ -24,8 +24,7 @@ export class AuthService {
     });
 
     if (error) {
-      console.warn('[AuthService.registerUser] Supabase error:', error.message);
-      logger.warn({ err: error.message }, '[AuthService.registerUser] Supabase error');
+      logger.warn({ err: error.message, email: cleanEmail }, '[AuthService.registerUser] Supabase rejected registration');
       if (error.message.includes('already been registered') || error.message.includes('already registered')) {
         throw new Error('此電子信箱已註冊，請直接進行登入');
       }

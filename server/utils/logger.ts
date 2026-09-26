@@ -1,5 +1,7 @@
 import pino from 'pino';
 
+import { requestContext } from './context';
+
 const isDev = process.env.NODE_ENV !== 'production';
 const envLogLevel = process.env.LOG_LEVEL?.toLowerCase();
 const defaultLevel: pino.Level = isDev ? 'debug' : 'info';
@@ -10,10 +12,16 @@ const logLevel: pino.Level = (
 ) as pino.Level;
 
 function createLogger(): pino.Logger {
+  const mixin = () => {
+    const store = requestContext.getStore();
+    return store?.requestId ? { reqId: store.requestId } : {};
+  };
+
   if (isDev) {
     // Development mode: Pretty printing with colors to terminal
     return pino({
       level: logLevel,
+      mixin,
       transport: {
         target: 'pino-pretty',
         options: {
@@ -41,6 +49,7 @@ function createLogger(): pino.Logger {
   return pino(
     {
       level: logLevel,
+      mixin,
       timestamp: pino.stdTimeFunctions.isoTime,
     },
     pino.multistream(streams, { dedupe: true })

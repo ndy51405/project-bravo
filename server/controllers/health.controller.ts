@@ -15,8 +15,7 @@ export class HealthController {
         counts,
       });
     } catch (err: any) {
-      console.error('Health check error:', err);
-      logger.error({ err }, 'Health check error');
+      logger.error({ err }, 'Health check failed');
       res.status(500).json({
         status: 'error',
         connection: 'failed',
